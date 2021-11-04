@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <!-- Fontawesome CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+        integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA=="
+        crossorigin="anonymous" />
+
+    <style>
+        body {
+            min-height: 75rem;
+            padding-top: 4.5rem;
+        }
+
+        .toast {
+            position: fixed;
+            right: 12.5rem;
+            min-width: 20rem;
+            z-index: 999;
+        }
+
+        .bd-modal-lg .modal-dialog {
+            display: table;
+            position: relative;
+            margin: 0 auto;
+            top: calc(50% - 24px);
+        }
+
+        .bd-modal-lg .modal-dialog .modal-content {
+            background-color: transparent;
+            border: none;
+        }
+    </style>
+    <title>GitHub Release Generator</title>
+</head>
+
+<body>
+
+    <div class="modal fade bd-modal-lg" id="loadingModal" data-backdrop="static" data-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content" style="width: 48px">
+                <div class="spinner-grow text-info" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" aria-live="polite" aria-atomic="true" role="alert" data-delay="10000">
+        <div class="toast-header">
+            <i class="fab fa-github"></i>&nbsp;
+            <strong class="mr-auto" id="toastTitle"></strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="toast-body" id="toastBody"></div>
+    </div>
+
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark flex-md-nowrap shadow">
+        <span class="navbar-brand mb-0 h1">GitHub Release Generator</span>
+
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown"
+                    aria-haspopup="true" aria-expanded="false">
+                    Go to Section
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item" href="#section_markdown"><i class="fab fa-fw fa-markdown"></i> Markdown</a>
+                    <a class="dropdown-item" href="#section_preview"><i class="fas fa-fw fa-file-alt"></i> Release
+                        Notes</a>
+                    <a class="dropdown-item" href="#section_integration"><i class="fas fa-fw fa-code-branch"></i>
+                        Integration Instructions</a>
+                    <a class="dropdown-item" href="#section_deploy"><i class="fas fa-fw fa-cloud-download-alt"></i>
+                        Deploy Instructions</a>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="updateCredentials" href="#" data-toggle="tooltip" data-placement="bottom"
+                    data-html="true" title="Update GitHub token and organization"><i class="fas fa-key"></i></a>
+            </li>
+        </ul>
+
+        <div class="form-inline my-2 my-lg-0" id="filters">
+            <div class="col-sm">
+                <select class="custom-select" id="repoSelect" data-toggle="tooltip" data-placement="bottom"
+                    title="Repository"></select>
+            </div>
+            <div class="col-sm">
+                <select class="custom-select" id="milestoneSelect" data-toggle="tooltip" data-placement="bottom"
+                    title="Milestone"></select>
+            </div>
+            <div class="col-sm">
+                <button type="button" class="btn btn-warning text-nowrap" id="createRelease" data-toggle="tooltip"
+                    data-placement="bottom" data-html="true"
+                    title="A tag must be created <u>FIRST</u> before pressing, otherwise a tag will be created from the develop branch.">Generate
+                    Release</button>
+            </div>
+        </div>
+    </nav>
+
+    <main role="main" class="container">
+
+        <div class="card-deck mt-3 mb-3" id="section_markdown">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="my-0 font-weight-normal"><i class="fab fa-fw fa-markdown"></i> Markdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <textarea class="form-control form-control-sm" id="markdownTextarea" rows="12"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck mb-3" id="section_preview">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="my-0 font-weight-normal"><i class="fas fa-fw fa-file-alt"></i> Release Notes</h5>
+                </div>
+                <div class="card-body">
+                    <div id="milestone-issues"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck mb-3">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="my-0 font-weight-normal" id="section_integration"><i
+                            class="fas fa-fw fa-code-branch"></i> Integration Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <pre><code id="integration-instructions"></code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck mb-3">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="my-0 font-weight-normal" id="section_deploy"><i
+                            class="fas fa-fw fa-cloud-download-alt"></i> Deploy Instructions</h5>
+                </div>
+                <div class="card-body">
+
+                    <p>Once everything is merged into <code>develop</code>, do the following:</p>
+                    <pre><code>git checkout develop
+git pull
+git checkout main
+git pull
+git merge develop -m "release: <span class="tag-release">0</span>"
+git tag <span class="tag-release">0</span>
+git push upstream main
+git push upstream <span class="tag-release">0</span></code></pre>
+                    <p>Press the "Generate Release" button at the top</p>
+
+                    <ul class="nav nav-tabs" id="deploy-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="home-tab" data-toggle="tab" href="#deploy-instructions"
+                                role="tab">Deploy to Production</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="deploy-tab-ontent">
+
+                        <div class="tab-pane fade show pt-3 active" id="deploy-instructions" role="tabpanel">
+                            <ol start="0">
+                                <li>Pull main</li>
+                                <li>Build and Deploy</li>
+                            </ol>
+                            <pre><code>yarn build && firebase use production && firebase deploy</code></pre>
+
+                            <ol start="3">
+                                <li>Perform any configuration as noted in the release summary</li>
+                            </ol>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+    </main>
+
+    <div class="modal fade" id="authModal" tabindex="-1" role="dialog" aria-labelledby="tokenModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tokenModalLabel">GitHub Authentication</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form class="needs-validation" id="authForm" novalidate>
+                    <div class="modal-body">
+
+
+                        <div class="form-group">
+                            <label for="github-token" class="col-form-label">Token:</label>
+                            <input type="text" class="form-control" id="github-token" required>
+                            <div class="invalid-feedback">
+                                Please enter your GitHub Auth Token.
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="github-organization" class="col-form-label">Organization:</label>
+                            <input type="text" class="form-control" id="github-organization" required>
+                            <div class="invalid-feedback">
+                                Please enter your organization.
+                            </div>
+                        </div>
+
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="saveCredentials">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    <script type="module">
+        import { Octokit } from "https://cdn.skypack.dev/@octokit/rest";
+
+        let octokit;
+        let organization;
+        let repo;
+
+        // Set as variables for efficiency.
+        let $loadingModal = $('#loadingModal');
+        let $toast = $('#toast');
+        let $toastTitle = $('#toastTitle');
+        let $toastBody = $('#toastBody');
+        let $authModal = $('#authModal');
+        let $authForm = $('#authForm');
+        let $repoSelect = $('#repoSelect');
+        let $saveCredentials = $('#saveCredentials');
+        let $updateCredentials = $('#updateCredentials');
+        let $milestoneSelect = $('#milestoneSelect');
+        let $createRelease = $('#createRelease');
+        let $markdownTextarea = $('#markdownTextarea');
+        let $tag_release = $('.tag-release');
+
+        $(document).ready(function () {
+            let token = localStorage.getItem('token');
+            organization = localStorage.getItem('organization');
+
+            // Enable tooltips.
+            $('[data-toggle="tooltip"]').tooltip();
+
+            // Initiallize toast.
+            $toast.toast();
+
+            // Display the modal for page load.
+            $loadingModal.modal('show');
+
+            if (!token || 0 === token.length || !organization || 0 === organization.length) {
+                $authModal.modal('show');
+            }
+            else {
+                authOctokit(token);
+                loadRepos();
+            }
+        });
+
+        function authOctokit(token) {
+            octokit = new Octokit({
+                auth: `token ${token}`,
+                userAgent: 'release generator v2.0',
+                log: {
+                    debug: () => { },
+                    info: () => { },
+                    warn: console.warn,
+                    error: console.error
+                },
+                request: {
+                    agent: undefined,
+                    fetch: undefined,
+                    timeout: 0
+                }
+            });
+        }
+
+        function loadRepos() {
+            octokit.repos
+                .listForOrg({
+                    org: organization,
+                    type: 'all',
+                    sort: 'updated'
+                })
+                .then(data => {
+                    // Populate repos.
+                    $.each(data.data, function (key, value) {
+                        $repoSelect.append(
+                            $('<option></option>')
+                                .attr('value', value.name)
+                                .text(value.name)
+                        );
+                    });
+
+                    // Set the default repo.
+                    $repoSelect.val('interface');
+                    $repoSelect.trigger('change');
+                });
+        }
+
+        // Update credentials.
+        $updateCredentials.on('click', function () {
+            let token = localStorage.getItem('token');
+            let organization = localStorage.getItem('organization');
+            $('#github-token').val(token);
+            $('#github-organization').val(organization);
+            $authModal.modal('show');
+        });
+
+        // Save credentials.
+        $saveCredentials.on('click', function () {
+            // Validate the form.
+            let form = document.getElementById('authForm');
+            if (form.checkValidity() === false) {
+                event.preventDefault();
+                event.stopPropagation();
+                form.classList.add('was-validated');
+            }
+            else {
+                form.classList.add('was-validated');
+
+                let token = $('#github-token').val();
+                organization = $('#github-organization').val();
+
+                if (token && 0 !== token.length && organization && 0 !== organization.length) {
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('organization', organization);
+
+                    $authModal.modal('hide');
+                    $loadingModal.modal('show');
+
+                    authOctokit(token);
+                    loadRepos();
+                }
+            }
+        });
+
+        // Repository selection changed event.
+        $repoSelect.change(function () {
+            repo = $repoSelect.val();
+
+            // Populate milestones.
+            octokit.issues
+                .listMilestones({
+                    owner: organization,
+                    repo: repo
+                })
+                .then(data => {
+                    $milestoneSelect.empty();
+
+                    // Build the select list.
+                    $.each(data.data, function (key, value) {
+                        $milestoneSelect.append(
+                            $('<option></option>')
+                                .attr('value', value.number)
+                                .text(value.title)
+                        );
+                    });
+
+                    // Set the default milestone.
+                    $milestoneSelect.val(data.data[0].number);
+                    $milestoneSelect.trigger('change');
+                });
+
+        });
+
+        // Milestone selection changed event.
+        $milestoneSelect.change(function () {
+            let milestone = $milestoneSelect.val();
+            let body = '';
+
+            // Display the modal.
+            // Only needed here since changing the repo triggers a milestone change.
+            $loadingModal.modal('show');
+
+            // Set the release tag version.
+            $tag_release.html($milestoneSelect.find('option:selected').text());
+
+            octokit.issues
+                .getMilestone({
+                    owner: organization,
+                    repo: repo,
+                    milestone_number: milestone
+                })
+                .then(({ data, headers, status }) => {
+                    body += '## Milestone: [' + data.title + '](' + data.html_url + ')';
+
+                    // Get the issues in the milestone.
+                    octokit.search
+                        .issuesAndPullRequests({
+                            q: 'org:' + organization + ' repo:' + organization + '/' + repo + ' milestone:"' + data.title + '"',
+                            per_page: 100
+                        })
+                        .then(result => {
+                            let integration_branch = "git checkout develop\ngit fetch upstream\ngit pull --no-edit\ngit checkout -b release/" + data.title;
+                            for (let i in result.data.items) {
+                                let issue = result.data.items[i];
+
+                                // The search is fuzzy, check the repository url for the repo name.
+                                if (issue.repository_url.indexOf(repo) !== -1) {
+                                    integration_branch += "\ngit pull upstream pull/" + issue.number + "/head --no-edit";
+                                    body += "\n\n---\n\n";
+                                    body += '### ' + issue.title + ' [#' + issue.number + "]\n\n";
+                                    body += issue.body;
+                                }
+                            }
+
+                            // Render markdown for release notes.
+                            octokit.markdown
+                                .render({
+                                    mode: 'gfm',
+                                    text: body,
+                                    context: organization + '/' + repo
+                                })
+                                .then(result => {
+                                    $('#milestone-issues').html(result.data);
+                                    $markdownTextarea.val(body);
+                                });
+
+                            // Output integration instructions.
+                            integration_branch += "\ngit push upstream\n";
+                            $('#integration-instructions').html(integration_branch);
+
+                            $loadingModal.modal('hide');
+                        });
+                });
+        });
+
+        // Create release event.
+        $createRelease.on('click', function () {
+            let milestone = $milestoneSelect.find('option:selected').text();
+            let makeRelease = false;
+
+            // Search for the release.
+            octokit.repos.getReleaseByTag({
+                owner: organization,
+                repo: repo,
+                tag: milestone,
+            })
+                .then(result => {
+                    let url = result.data.html_url;
+
+                    $toastTitle.html('Generate Release');
+                    $toastBody.html('A release for <a href="' + url + '" target="_blank">' + milestone + '</a> already exists!');
+                    $toast.toast('show');
+                })
+                .catch(function (error) {
+                    // Create the release.
+                    octokit.repos
+                        .createRelease({
+                            owner: organization,
+                            repo: repo,
+                            tag_name: milestone,
+                            target_commitish: 'develop',
+                            name: milestone,
+                            body: $markdownTextarea.val()
+                        })
+                        .then(result => {
+                            let url = result.data.html_url;
+
+                            $toastBody.html('Generate Release');
+                            $toastBody.html('Release <a href="' + url + '" target="_blank">' + milestone + '</a> successfully created.');
+                            $toast.toast('show');
+                        })
+                        .catch(function (error) {
+                            $toastTitle.html('Error');
+                            $toastBody.html('Could not create a release for ' + milestone + '. Error: ' + error.errors[0].code);
+                            $toast.toast('show');
+                        });
+                });
+
+        });
+
+        // Update the markdown render.
+        $markdownTextarea.on('keyup paste', debounce(function (event) {
+            let text = $(this).val();
+            // Render markdown for release notes.
+            octokit.markdown
+                .render({
+                    mode: 'gfm',
+                    text: text,
+                    context: organization + '/' + repo
+                })
+                .then(result => {
+                    $('#milestone-issues').html(result.data);
+                });
+        }, 1000));
+
+        // Throttle the keyboard input to reduce calls to GFM.
+        function debounce(fn, delay) {
+            var timer = null;
+            return function () {
+                var context = this, args = arguments;
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    fn.apply(context, args);
+                }, delay);
+            };
+        }
+
+    </script>
+
+</body>
+
+</html>
